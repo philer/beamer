@@ -17,7 +17,6 @@ from itertools import chain
 
 from docopt import docopt
 
-
 class ObjectDict(dict):
     """Dictionary with dot access."""
     def __getattr__(self, key):
@@ -121,7 +120,9 @@ xrandr_mode_casts = {
 def scan_xrandr_outputs(echo=True):
     """Iterate data of all outputs by parsing `xrandr --query`."""
     lines = run_cmd("xrandr", "--query", echo=echo).split("\n")[1:]
-    current_output = _sscanf(lines.pop(0), xrandr_output_regex, xrandr_output_casts)
+    current_output = None
+    while current_output is None:
+        current_output = _sscanf(lines.pop(0), xrandr_output_regex, xrandr_output_casts)
     current_output.modes = []
     for line in filter(None, lines):
         output = _sscanf(line, xrandr_output_regex, xrandr_output_casts)
