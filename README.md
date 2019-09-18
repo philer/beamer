@@ -7,12 +7,12 @@ This is a thin wrapper for `xrandr` to spare you typing out common setups in its
 
 Commands assume the first output listed by `xrandr` to be the main output (e.g. a laptops monitor).
 
-(See also `beamer -h`)
+(See also `beamer.py -h`)
 
-* `beamer info` Print a short, formatted list of avaliable outputs and modes
-* `beamer clone` mirror the main output to a secondary output
-* `beamer left` extend the screen to a secondary output left of the main output
-* `beamer right` extend the screen to a secondary output right of the main output
-* `beamer off` only use main output
-* `beamer only` only use secondary output
-* `beamer query` show output of `xrandr --query`
+* `beamer.py info` Print a short, formatted list of avaliable outputs and modes
+* `beamer.py clone` mirror the main output to a secondary output
+* `beamer.py left` extend the screen to a secondary output left of the main output
+* `beamer.py right` extend the screen to a secondary output right of the main output
+* `beamer.py off` only use main output
+* `beamer.py only` only use secondary output
+* `beamer.py query` show output of `xrandr --query`

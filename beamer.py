@@ -7,7 +7,7 @@ a secondary monitor or beamer. May work for
 more than 2 connected outputs, but untested.
 
 Usage:
-    beamer [info|query|clone|left|right|off|only] [-r|--retry]
+    beamer.py [info|query|clone|left|right|off|only] [-r|--retry]
 
 Options
     -r --retry    Retry failed commands every second until they succeed.
