@@ -14,7 +14,7 @@ def test_clone(run_cmd):
     run_cmd.return_value = xrandr_output_single
     assert beamer.beamer_clone_args() == ("xrandr",
         "--output", "eDP1", "--mode", "1920x1080")
-    run_cmd.assert_has_calls([call("xrandr", "--query")])
+    assert run_cmd.call_args[0] == ("xrandr", "--query")
     run_cmd.return_value = xrandr_output_with_beamer
     assert beamer.beamer_clone_args() == ("xrandr",
         "--output", "eDP1", "--mode", "1920x1080",
