@@ -7,7 +7,10 @@ a secondary monitor or beamer. May work for
 more than 2 connected outputs, but untested.
 
 Usage:
-    beamer [info|query|clone|left|right|off|only]
+    beamer [info|query|clone|left|right|off|only] [-r|--retry]
+
+Options
+    -r --retry    Retry failed commands every second until they succeed.
 """
 
 import sys
@@ -15,10 +18,10 @@ import os
 import re
 import subprocess
 from math import ceil
+from time import sleep
 from itertools import chain
 
 from docopt import docopt
-
 
 class ObjectDict(dict):
     """Dictionary with dot access."""
@@ -69,15 +72,20 @@ def run_cmd(*args, echo=True):
     """Execute a command line utility and return the output."""
     if echo:
         info(" ".join(args))
-    result = subprocess.run(args,
-                            check=True,
-                            universal_newlines=True,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT)
-    # except subprocess.CalledProcessError as cpe:
-    if echo:
-        print(result.stdout, end="")
-    return result.stdout
+    try:
+        result = subprocess.run(args,
+                                check=True,
+                                universal_newlines=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as cpe:
+        error("subprocess '" + " ".join(args) + "' failed:")
+        error(cpe.stdout)
+        return cpe.stdout
+    else:
+        if echo:
+            print(result.stdout, end="")
+        return result.stdout
 
 
 def _sscanf(string, regex, casts):
@@ -134,7 +142,9 @@ xrandr_mode_casts = {
 def scan_xrandr_outputs(echo=True):
     """Iterate data of all outputs by parsing `xrandr --query`."""
     lines = run_cmd("xrandr", "--query", echo=echo).split("\n")[1:]
-    current_output = _sscanf(lines.pop(0), xrandr_output_regex, xrandr_output_casts)
+    current_output = None
+    while current_output is None:
+        current_output = _sscanf(lines.pop(0), xrandr_output_regex, xrandr_output_casts)
     current_output.modes = []
     for line in filter(None, lines):
         output = _sscanf(line, xrandr_output_regex, xrandr_output_casts)
@@ -215,25 +225,30 @@ def main():
     """Run the CLI."""
     args = docopt(__doc__, version="0.0.1")
     cmd_args = None
-    if args["off"]:
-        cmd_args = beamer_single_output_args(index=0)
-    elif args["only"]:
-        cmd_args = beamer_single_output_args(index=1)
-    elif args["clone"]:
-        cmd_args = beamer_clone_args()
-    elif args["left"]:
-        cmd_args = beamer_side_args("left")
-    elif args["right"]:
-        cmd_args = beamer_side_args("right")
-    elif args["info"]:
-        return beamer_info()
-    else:
-        cmd_args = beamer_query_args()
-    if cmd_args:
-        run_cmd(*cmd_args)
-    else:
-        exit(1)
+    while cmd_args is None:
+        if args["off"]:
+            cmd_args = beamer_single_output_args(index=0)
+        elif args["only"]:
+            cmd_args = beamer_single_output_args(index=1)
+        elif args["clone"]:
+            cmd_args = beamer_clone_args()
+        elif args["left"]:
+            cmd_args = beamer_side_args("left")
+        elif args["right"]:
+            cmd_args = beamer_side_args("right")
+        elif args["info"]:
+            return beamer_info()
+        else:
+            cmd_args = beamer_query_args()
+
+        if cmd_args:
+            run_cmd(*cmd_args)
+            return
+        elif not args["--retry"]:
+            return 1
+        else:
+            sleep(1)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
