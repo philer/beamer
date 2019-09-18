@@ -10,9 +10,11 @@ Usage:
     beamer [info|query|clone|left|right|off|only]
 """
 
-import sys, os
+import sys
+import os
 import re
 import subprocess
+from math import ceil
 from itertools import chain
 
 from docopt import docopt
@@ -29,33 +31,44 @@ class ObjectDict(dict):
     def __setattr__(self, key, value):
         self[key] = value
 
-# def chunk(iterable, size):
-#     it = iter(iterable)
-#     current_chunk = tuple(next(it) for _ in range(size))
-#     while current_chunk:
-#         yield current_chunk
-#         current_chunk = tuple(next(it) for _ in range(size))
+
+def chunk(iterable, size):
+    """Split an iterable into tuples of equal length (last may be shorter)."""
+    try:
+        for index in range(0, len(iterable), size):
+            yield iterable[index:index + size]
+    except TypeError:
+        it = iter(iterable)
+        current_chunk = tuple(next(it) for _ in range(size))
+        while current_chunk:
+            yield current_chunk
+            current_chunk = tuple(next(it) for _ in range(size))
 
 
-# def print_list_columns(entries, format=str):
-#     entries = tuple(map(format, entries))
-#     max_len = max(map(len, entries))
-#     term_width = os.get_terminal_size().columns
-#     columns = term_width // max_len
-#     lines = ceil(len(entries) / columns)
-#     for
+def list_to_columns(strings, *, sep=" ", indent=""):
+    """stringify a sequence into columns fitting into a terminal `ls` style."""
+    max_len = max(map(len, strings))
+    term_width = os.get_terminal_size().columns
+    columns = (term_width - len(indent)) // (max_len + len(sep))
+    lines = ceil(len(strings) / columns)
+    return "\n".join(indent + sep.join(s.rjust(max_len)
+                                       for s in strings[lineno::lines])
+                     for lineno in range(lines))
 
 
-def error(msg, errno=1):
-    """Print an error message and exit."""
+def info(msg):
+    """Print an info message and exit."""
+    print("\033[1;32m" + str(msg) + "\033[0m")
+
+def error(msg):
+    """Print an error message."""
     print("\033[1;31m" + str(msg) + "\033[0m")
-    sys.exit(errno)
 
 
 def run_cmd(*args, echo=True):
     """Execute a command line utility and return the output."""
     if echo:
-        print("\033[1;32m" + " ".join(args) + "\033[0m")
+        info(" ".join(args))
     result = subprocess.run(args,
                             check=True,
                             universal_newlines=True,
@@ -146,11 +159,11 @@ def connected_outputs(echo=True):
 
 
 def beamer_info():
-    for number, output in enumerate(connected_outputs(echo=False), start=1):
-        # print(number, output)
-        print("\033[1;32m{}: {}\033[0m".format(number, output.name))
-        # print("\t", *map("{width}x{height}".format_map, output.modes))
-        print("\n".join(map("  {width}x{height}".format_map, output.modes)))
+    for output in connected_outputs(echo=False):
+        info(output.name)
+        modes = ["{}{}x{}".format("*" if m.active else "", m.width, m.height)
+                 for m in output.modes]
+        print(list_to_columns(modes, indent="  "))
 
 
 def beamer_query_args():
