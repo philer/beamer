@@ -7,7 +7,7 @@ a secondary monitor or beamer. May work for
 more than 2 connected outputs, but untested.
 
 Usage:
-    beamer.py [info|query|clone|left|right|off|only] [-r|--retry]
+    beamer.py [info|query|clone|left|right|above|below|off|only] [-r|--retry]
 
 Options
     -r --retry    Retry failed commands every second until they succeed.
@@ -201,12 +201,18 @@ def beamer_clone_args():
 
 def beamer_side_args(side):
     """xrandr arguments for putting one output next to the other."""
+    side_parameters = {
+        "left": "--left-of",
+        "right": "--right-of",
+        "above": "--above",
+        "below": "--below",
+    }
     outputs = tuple(connected_outputs())
     if len(outputs) != 2:
         return print("Which outputs should I use? Found {}".format(len(outputs)))
     return ("xrandr", "--output", outputs[0].name, "--auto",
             "--output", outputs[1].name, "--auto",
-            "--" + side + "-of", outputs[0].name)
+            side_parameters[side], outputs[0].name)
 
 
 def beamer_single_output_args(index=0):
@@ -232,10 +238,9 @@ def main():
             cmd_args = beamer_single_output_args(index=1)
         elif args["clone"]:
             cmd_args = beamer_clone_args()
-        elif args["left"]:
-            cmd_args = beamer_side_args("left")
-        elif args["right"]:
-            cmd_args = beamer_side_args("right")
+        elif args["left"] or args["right"] or args["above"] or args["below"]:
+            side = next(side for side in ("left", "right", "above", "below") if args[side])
+            cmd_args = beamer_side_args(side)
         elif args["info"]:
             return beamer_info()
         else:

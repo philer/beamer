@@ -38,6 +38,12 @@ def test_sides(run_cmd):
     assert beamer.beamer_side_args("right") == ("xrandr",
         "--output", "eDP1", "--auto", "--output", "HDMI2", "--auto",
         "--right-of", "eDP1")
+    assert beamer.beamer_side_args("above") == ("xrandr",
+        "--output", "eDP1", "--auto", "--output", "HDMI2", "--auto",
+        "--above", "eDP1")
+    assert beamer.beamer_side_args("below") == ("xrandr",
+        "--output", "eDP1", "--auto", "--output", "HDMI2", "--auto",
+        "--below", "eDP1")
     run_cmd.return_value = xrandr_output_double_monitor
     assert beamer.beamer_side_args("left") == ("xrandr",
         "--output", "DVI-D-0", "--auto", "--output", "HDMI-0", "--auto",
@@ -45,6 +51,12 @@ def test_sides(run_cmd):
     assert beamer.beamer_side_args("right") == ("xrandr",
         "--output", "DVI-D-0", "--auto", "--output", "HDMI-0", "--auto",
         "--right-of", "DVI-D-0")
+    assert beamer.beamer_side_args("above") == ("xrandr",
+        "--output", "DVI-D-0", "--auto", "--output", "HDMI-0", "--auto",
+        "--above", "DVI-D-0")
+    assert beamer.beamer_side_args("below") == ("xrandr",
+        "--output", "DVI-D-0", "--auto", "--output", "HDMI-0", "--auto",
+        "--below", "DVI-D-0")
 
 
 @patch("beamer.run_cmd")
