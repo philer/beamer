@@ -7,11 +7,21 @@ a secondary monitor or beamer. May work for
 more than 2 connected outputs, but untested.
 
 Usage:
-    beamer.py [info|query|clone|left|right|above|below|off|only] [-r|--retry]
+    beamer [info|query|clone|left|right|above|below|off|only] [-r|--retry]
 
 Options
     -r --retry    Retry failed commands every second until they succeed.
 """
+
+__title__ = "beamer"
+__version__ = "0.1.0"
+__license__ = "MIT"
+__status__ = "Development"
+
+__author__ = "Philipp Miller"
+__email__ = "me@philer.org"
+__copyright__ = "Copyright 2019 Philipp Miller"
+
 
 import sys
 import os
@@ -22,6 +32,7 @@ from time import sleep
 from itertools import chain
 
 from docopt import docopt
+
 
 class ObjectDict(dict):
     """Dictionary with dot access."""
