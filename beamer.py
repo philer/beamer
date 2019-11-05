@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Simplistic CLI for toggling and positioning
-a secondary monitor or beamer. May work for
-more than 2 connected outputs, but untested.
+Simple tool for toggling and positioning a secondary monitor or projector on Linux.
 
 Usage:
     beamer [info|query|clone|left|right|above|below|off|only] [-r|--retry]

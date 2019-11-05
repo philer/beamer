@@ -1,7 +1,5 @@
-# beamer.py
-
-Simplistic CLI for toggling and positioning a secondary monitor or projector.  
-This is a thin wrapper for `xrandr` to spare you typing out common setups in its verbose syntax.
+`beamer` is a simple command line tool for toggling and positioning a secondary monitor or projector on Linux.  
+It is a thin wrapper for `xrandr` to spare you typing out common setups in its verbose syntax. Consequently, it requires `xrandr` to be installed on your system.
 
 ## Commands
 
@@ -15,3 +13,12 @@ Commands assume the first output listed by `xrandr` to be the main output (e.g. 
 * `beamer off` only use main output
 * `beamer only` only use secondary output
 * `beamer query` show output of `xrandr --query`
+
+## Installation
+
+Run `pip install beamer`
+
+– or –
+
+copy the `beamer.py` file from this repository anywhere on your computer
+and run it via `python3 /path/to/beamer.py`.

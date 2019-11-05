@@ -13,7 +13,7 @@ setup(
     description='Simplistic CLI for toggling and positioning a secondary monitor or projector',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/philer/beamer.py',
+    url='https://github.com/philer/beamer',
     version=__version__,
     license=__license__,
     author=__author__,
