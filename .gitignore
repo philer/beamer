@@ -1,0 +1,17 @@
+# Project specific
+
+# Python
+*.pyc
+__pycache__
+/*.egg-info
+/build
+/dist
+
+# Editors, IDEs, OS files
+*~
+*.swp
+*.sublime-*
+
+# Misc.
+*.old
+*.backup
