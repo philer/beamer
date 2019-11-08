@@ -5,8 +5,36 @@
 Run these tests with py.test.
 """
 
-from unittest.mock import patch, call
+import sys
+from unittest.mock import patch
+
 import beamer
+
+@patch("beamer.run_cmd")
+def test_main(run_cmd):
+    with patch.object(sys, "argv", ["beamer", "invalid_option"]):
+        assert beamer.main() > 0
+        run_cmd.assert_not_called()
+    with patch.object(sys, "argv", ["beamer", "left", "right"]):
+        assert beamer.main() > 0
+        run_cmd.assert_not_called()
+    run_cmd.return_value = xrandr_output_single
+    with patch.object(sys, "argv", ["beamer", "left"]):
+        assert beamer.main() > 0
+        run_cmd.assert_called_once()
+
+    run_cmd.reset_mock()
+    with patch.object(sys, "argv", ["beamer", "query"]):
+        assert beamer.main() is None
+        run_cmd.assert_called_once()
+        assert run_cmd.call_args.args in {("xrandr", "--query"), ("xrandr -q"), ("xrandr")}
+    run_cmd.reset_mock()
+    run_cmd.return_value = xrandr_output_with_beamer
+    with patch.object(sys, "argv", ["beamer", "left"]):
+        assert beamer.main() is None
+        run_cmd.assert_called_with("xrandr", "--output", "eDP1", "--auto",
+                                   "--output", "HDMI2", "--auto",
+                                   "--left-of", "eDP1")
 
 
 @patch("beamer.run_cmd")
@@ -70,14 +98,9 @@ def test_single_output(run_cmd):
     run_cmd.return_value = xrandr_output_double_monitor
     assert beamer.beamer_single_output_args(0) == ("xrandr",
         "--output", "DVI-D-0", "--auto", "--output", "HDMI-0", "--off")
-    ...  # todo "beamer only"
 
-# @patch("beamer.run_cmd")
-# def test_info_demo(run_cmd):
-#     for query_result in (xrandr_output_single, xrandr_output_double_monitor, xrandr_output_with_beamer):
-#       run_cmd.return_value = query_result
-#       beamer.beamer_info()
 
+# Sample outputs of xrandr on various configurations.
 
 xrandr_output_single = """\
 Screen 0: minimum 8 x 8, current 1920 x 1080, maximum 32767 x 32767
