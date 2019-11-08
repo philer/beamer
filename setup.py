@@ -28,7 +28,6 @@ setup(
         'Natural Language :: English',
     ],
     python_requires='>=3',
-    install_requires=['docopt'],
     py_modules=['beamer'],
     entry_points={'console_scripts': ['beamer = beamer:main']},
 )

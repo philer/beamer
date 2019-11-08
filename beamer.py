@@ -29,8 +29,6 @@ from math import ceil
 from time import sleep
 from itertools import chain
 
-from docopt import docopt
-
 
 class ObjectDict(dict):
     """Dictionary with dot access."""
@@ -238,19 +236,29 @@ def beamer_single_output_args(index=0):
 
 def main():
     """Run the CLI."""
-    args = docopt(__doc__, version="0.0.1")
+    commands = {"info", "query", "clone", "off", "only",
+                "left", "right", "above", "below"}
+    switches = {"-r", "--retry"}
+    args = set(sys.argv[1:])
+    try:
+        assert not args - commands - switches
+        command, = args & commands or {"info"}
+        switches = args & switches
+    except:
+        print(__doc__.strip())
+        return 1
+
     cmd_args = None
     while cmd_args is None:
-        if args["off"]:
+        if "off" == command:
             cmd_args = beamer_single_output_args(index=0)
-        elif args["only"]:
+        elif "only" == command:
             cmd_args = beamer_single_output_args(index=1)
-        elif args["clone"]:
+        elif "clone" == command:
             cmd_args = beamer_clone_args()
-        elif args["left"] or args["right"] or args["above"] or args["below"]:
-            side = next(side for side in ("left", "right", "above", "below") if args[side])
-            cmd_args = beamer_side_args(side)
-        elif args["info"]:
+        elif command in {"left", "right", "above", "below"}:
+            cmd_args = beamer_side_args(command)
+        elif "info" == command:
             return beamer_info()
         else:
             cmd_args = beamer_query_args()
@@ -258,10 +266,10 @@ def main():
         if cmd_args:
             run_cmd(*cmd_args)
             return
-        elif not args["--retry"]:
-            return 1
-        else:
+        elif switches & {"-r", "--retry"}:
             sleep(1)
+        else:
+            return 1
 
 
 if __name__ == "__main__":
