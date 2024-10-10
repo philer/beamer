@@ -18,28 +18,18 @@ __status__ = "Development"
 
 __author__ = "Philipp Miller"
 __email__ = "me@philer.org"
-__copyright__ = "Copyright 2019 Philipp Miller"
+__copyright__ = "Copyright 2019-2024 Philipp Miller"
 
 
-import sys
 import os
 import re
 import subprocess
+import sys
+from itertools import chain
 from math import ceil
 from time import sleep
-from itertools import chain
-
-
-class ObjectDict(dict):
-    """Dictionary with dot access."""
-    def __getattr__(self, key):
-        try:
-            return self[key]
-        except KeyError:
-            raise AttributeError from None
-
-    def __setattr__(self, key, value):
-        self[key] = value
+from typing import Any, ClassVar, Iterable, Optional, cast
+from pydantic import BaseModel
 
 
 def chunk(iterable, size):
@@ -56,7 +46,7 @@ def chunk(iterable, size):
 
 
 def list_to_columns(strings, *, sep=" ", indent=""):
-    """stringify a sequence into columns fitting into a terminal `ls` style."""
+    """Stringify a sequence into columns fitting into a terminal `ls` style."""
     max_len = max(map(len, strings))
     term_width = os.get_terminal_size().columns
     columns = (term_width - len(indent)) // (max_len + len(sep))
@@ -67,12 +57,12 @@ def list_to_columns(strings, *, sep=" ", indent=""):
 
 
 def info(msg):
-    """Print an info message and exit."""
-    print("\033[1;32m" + str(msg) + "\033[0m")
+    """Print an info message."""
+    print(f"\033[1;32m{msg}\033[0m")
 
 def error(msg):
     """Print an error message."""
-    print("\033[1;31m" + str(msg) + "\033[0m")
+    print(f"\033[1;31m{msg}\033[0m")
 
 
 def run_cmd(*args, echo=True):
@@ -95,12 +85,12 @@ def run_cmd(*args, echo=True):
         return result.stdout
 
 
-def _sscanf(string, regex, casts):
+def _sscanf(string, regex, casts) -> Optional[dict[str, Any]]:
     """Weird sscanf type thing using regex"""
     match = regex.match(string)
     if match is None:
         return None
-    result = ObjectDict()
+    result = dict()
     for key, value in match.groupdict().items():
         try:
             result[key] = casts[key](value)
@@ -109,66 +99,93 @@ def _sscanf(string, regex, casts):
     return result
 
 
-xrandr_output_regex = re.compile(r"""
-    (?P<name>\S+)
-    \ (?P<connected>(?:dis)?connected)
-    (?P<primary>\ primary)?
-    (?:\ (?P<width>\d+)x(?P<height>\d+)
-         (?P<xoffset>[+-]\d+)(?P<yoffset>[+-]\d+)
-    )?
-    \ \((?P<info>.*?)\)
-    (?:\ (?P<physical_size>.*))?
-    """, flags=re.ASCII|re.VERBOSE
-)
-xrandr_output_casts = {
-    'name': str,
-    'connected': lambda x: x == "connected",
-    'primary': bool,
-    'width': int,
-    'height': int,
-    'xoffset': int,
-    'yoffset': int,
-    'info': str,
-    'physical_size': str,
-}
-xrandr_mode_regex = re.compile(r"""
-    \s+(?P<width>\d+)x(?P<height>\d+)
-    \s+(?P<frequency>\d+\.\d+)
-    (?P<active>\*)?
-    (?P<preferred>\+)?
-    """, flags=re.ASCII|re.VERBOSE)
-xrandr_mode_casts = {
-    'width': int,
-    'height': int,
-    'frequency': float,
-    'active': bool,
-    'preferred': bool,
-}
+class Mode(BaseModel, frozen=True):
+    """Respresents a single monitor's resolution setting."""
+    width: int
+    height: int
+    frequency: float
+    active: bool
+    preferred: bool
+
+    _xrandr_regex: ClassVar = re.compile(
+        r"""
+        \s+(?P<width>\d+)x(?P<height>\d+)
+        \s+(?P<frequency>\d+\.\d+)
+        (?P<active>\*)?
+        (?P<preferred>\+)?
+        """,
+        flags=re.ASCII|re.VERBOSE
+    )
+
+    _xrandr_casts: ClassVar = {
+        'width': int,
+        'height': int,
+        'frequency': float,
+        'active': bool,
+        'preferred': bool,
+    }
 
 
-def scan_xrandr_outputs(echo=True):
+class Output(BaseModel, frozen=True):
+    """Represents a monitor connection."""
+    name: str
+    connected: bool
+    primary: bool
+    width: Optional[int] = None
+    height: Optional[int] = None
+    xoffset: Optional[int] = None
+    yoffset: Optional[int] = None
+    info: str
+    physical_size: str
+    modes: tuple[Mode, ...]
+
+    _xrandr_regex: ClassVar = re.compile(
+        r"""
+        (?P<name>\S+)
+        \ (?P<connected>(?:dis)?connected)
+        (?P<primary>\ primary)?
+        (?:\ (?P<width>\d+)x(?P<height>\d+)
+             (?P<xoffset>[+-]\d+)(?P<yoffset>[+-]\d+)
+        )?
+        \ \((?P<info>.*?)\)
+        (?:\ (?P<physical_size>.*))?
+        """,
+        flags=re.ASCII|re.VERBOSE,
+    )
+
+    _xrandr_casts: ClassVar = {
+        'name': str,
+        'connected': lambda x: x == "connected",
+        'primary': bool,
+        'width': int,
+        'height': int,
+        'xoffset': int,
+        'yoffset': int,
+        'info': str,
+        'physical_size': str,
+    }
+
+
+def scan_xrandr_outputs(echo=True) -> Iterable[Output]:
     """Iterate data of all outputs by parsing `xrandr --query`."""
     lines = run_cmd("xrandr", "--query", echo=echo).split("\n")[1:]
-    current_output = None
-    while current_output is None:
-        current_output = _sscanf(lines.pop(0), xrandr_output_regex, xrandr_output_casts)
-    current_output.modes = []
+
+    current_output: Optional[dict[str, Any]]
+    while (current_output := _sscanf(lines.pop(0), Output._xrandr_regex, Output._xrandr_casts)) is None:
+        pass
+
+    modes: list[Mode] = []
     for line in filter(None, lines):
-        output = _sscanf(line, xrandr_output_regex, xrandr_output_casts)
-        if output:
-            yield current_output
-            current_output = output
-            current_output.modes = []
-            continue
-        mode = _sscanf(line, xrandr_mode_regex, xrandr_mode_casts)
-        if mode:
-            current_output.modes.append(mode)
-            continue
-        # print("ignoring line '{}'".format(line))
-    yield current_output
+        if new_output := _sscanf(line, Output._xrandr_regex, Output._xrandr_casts):
+            yield Output(**current_output, modes=tuple(modes))
+            current_output, modes = new_output, []
+        elif mode := _sscanf(line, Mode._xrandr_regex, Mode._xrandr_casts):
+            modes.append(Mode.model_validate(mode))
+
+    yield Output(**current_output, modes=tuple(modes))
 
 
-def connected_outputs(echo=True):
+def connected_outputs(echo=True) -> Iterable[Output]:
     """Iterate outputs filtered by connection status."""
     for output in scan_xrandr_outputs(echo=echo):
         if output.connected:
@@ -176,28 +193,22 @@ def connected_outputs(echo=True):
 
 
 def beamer_info():
-    for output in connected_outputs(echo=False):
-        info(output.name)
-        modes = ["{}{}x{}".format("*" if m.active else "", m.width, m.height)
-                 for m in output.modes]
+    for index, output in enumerate(connected_outputs(echo=False), start=1):
+        info(f"{index}: {output.name}")
+        modes = [f"{'*' if m.active else ''}{m.width}x{m.height}" for m in output.modes]
         print(list_to_columns(modes, indent="  "))
 
 
-def beamer_query_args():
-    """xrandr arguments for querying current status."""
-    return ("xrandr", "--query")
-
-
-def beamer_clone_args():
+def beamer_clone_args() -> Optional[tuple[str, ...]]:
     """xrandr arguments for cloning to all connected outputs."""
     outputs = tuple(connected_outputs())
-    print("Cloning to {} outputs.".format(len(outputs)))
-    resolutions = ({(md.width, md.height) for md in out.modes} for out in outputs)
+    print(f"Cloning to {len(outputs)} outputs.")
+    resolutions = set[tuple[int, int]].intersection(*({(md.width, md.height) for md in out.modes} for out in outputs))
     try:
-        resolution = max(set.intersection(*resolutions))
+        width, height = max(resolutions)
     except ValueError:
         return print("no matching resolution found")
-    mode = "{}x{}".format(*resolution)
+    mode = f"{width}x{height}"
     return ("xrandr", "--output", outputs[0].name, "--mode", mode,
             *chain.from_iterable(("--output", out.name,
                                   "--mode", mode,
@@ -206,7 +217,7 @@ def beamer_clone_args():
             )
 
 
-def beamer_side_args(side):
+def beamer_side_args(side) -> Optional[tuple[str, ...]]:
     """xrandr arguments for putting one output next to the other."""
     side_parameters = {
         "left": "--left-of",
@@ -216,19 +227,19 @@ def beamer_side_args(side):
     }
     outputs = tuple(connected_outputs())
     if len(outputs) != 2:
-        return print("Which outputs should I use? Found {}".format(len(outputs)))
+        return print(f"Which outputs should I use? Found {len(outputs)}")
     return ("xrandr", "--output", outputs[0].name, "--auto",
             "--output", outputs[1].name, "--auto",
             side_parameters[side], outputs[0].name)
 
 
-def beamer_single_output_args(index=0):
+def beamer_single_output_args(index=0) -> Optional[tuple[str, ...]]:
     """xrandr arguments for turning off all outputs except one."""
     outputs = list(connected_outputs())
     try:
         activate = outputs.pop(index)
     except IndexError:
-        return print("No output with index {} connected".format(index))
+        return print(f"No output with index {index} connected")
     return ("xrandr", "--output", activate.name, "--auto",
             *chain.from_iterable(("--output", out.name, "--off")
                                  for out in outputs)
@@ -245,7 +256,7 @@ def main():
         command, = args & commands or {"info"}
         switches = args & switches
     except:
-        print(__doc__.strip())
+        print(cast(str, __doc__).strip())
         return 1
 
     cmd_args = None
@@ -261,7 +272,7 @@ def main():
         elif "info" == command:
             return beamer_info()
         else:
-            cmd_args = beamer_query_args()
+            cmd_args = ("xrandr", "--query")
 
         if cmd_args:
             run_cmd(*cmd_args)
