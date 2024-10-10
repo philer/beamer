@@ -5,10 +5,7 @@
 Simple tool for toggling and positioning a secondary monitor or projector on Linux.
 
 Usage:
-    beamer [info|query|clone|left|right|above|below|off|only] [-r|--retry]
-
-Options
-    -r --retry    Retry failed commands every second until they succeed.
+    beamer [info|query|clone|left|right|above|below|off|only]
 """
 
 __title__ = "beamer"
@@ -27,7 +24,6 @@ import subprocess
 import sys
 from itertools import chain
 from math import ceil
-from time import sleep
 from typing import Any, ClassVar, Iterable, Optional, cast
 from pydantic import BaseModel
 
@@ -65,7 +61,7 @@ def error(msg):
     print(f"\033[1;31m{msg}\033[0m")
 
 
-def run_cmd(*args, echo=True):
+def run_cmd(args: tuple[str, ...], echo=True):
     """Execute a command line utility and return the output."""
     if echo:
         info(" ".join(args))
@@ -168,7 +164,7 @@ class Output(BaseModel, frozen=True):
 
 def scan_xrandr_outputs(echo=True) -> Iterable[Output]:
     """Iterate data of all outputs by parsing `xrandr --query`."""
-    lines = run_cmd("xrandr", "--query", echo=echo).split("\n")[1:]
+    lines = run_cmd(("xrandr", "--query"), echo=echo).split("\n")[1:]
 
     current_output: Optional[dict[str, Any]]
     while (current_output := _sscanf(lines.pop(0), Output._xrandr_regex, Output._xrandr_casts)) is None:
@@ -235,10 +231,9 @@ def beamer_side_args(side) -> Optional[tuple[str, ...]]:
 
 def beamer_single_output_args(index=0) -> Optional[tuple[str, ...]]:
     """xrandr arguments for turning off all outputs except one."""
-    outputs = list(connected_outputs())
     try:
-        activate = outputs.pop(index)
-    except IndexError:
+        activate, *outputs = connected_outputs()
+    except ValueError:
         return print(f"No output with index {index} connected")
     return ("xrandr", "--output", activate.name, "--auto",
             *chain.from_iterable(("--output", out.name, "--off")
@@ -247,40 +242,23 @@ def beamer_single_output_args(index=0) -> Optional[tuple[str, ...]]:
 
 def main():
     """Run the CLI."""
-    commands = {"info", "query", "clone", "off", "only",
-                "left", "right", "above", "below"}
-    switches = {"-r", "--retry"}
-    args = set(sys.argv[1:])
-    try:
-        assert not args - commands - switches
-        command, = args & commands or {"info"}
-        switches = args & switches
-    except:
-        print(cast(str, __doc__).strip())
-        return 1
-
-    cmd_args = None
-    while cmd_args is None:
-        if "off" == command:
-            cmd_args = beamer_single_output_args(index=0)
-        elif "only" == command:
-            cmd_args = beamer_single_output_args(index=1)
-        elif "clone" == command:
-            cmd_args = beamer_clone_args()
-        elif command in {"left", "right", "above", "below"}:
-            cmd_args = beamer_side_args(command)
-        elif "info" == command:
+    cmd: Optional[tuple[str, ...]] = None
+    match sys.argv[1:]:
+        case ["info"]:
             return beamer_info()
-        else:
-            cmd_args = ("xrandr", "--query")
-
-        if cmd_args:
-            run_cmd(*cmd_args)
-            return
-        elif switches & {"-r", "--retry"}:
-            sleep(1)
-        else:
-            return 1
+        case ["off"]:
+            cmd = beamer_single_output_args(index=0)
+        case ["only"]:
+            cmd = beamer_single_output_args(index=1)
+        case ["clone"]:
+            cmd = beamer_clone_args()
+        case ["left"| "right"| "above"| "below" as command]:
+            cmd = beamer_side_args(command)
+        case _:
+            error(cast(str, __doc__).strip())
+    if cmd:
+        return run_cmd(cmd)
+    return 1
 
 
 if __name__ == "__main__":
