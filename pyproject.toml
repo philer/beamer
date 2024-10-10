@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "beamer"
+version = "0.2.0"
+description = "Simple CLI for toggling and positioning a secondary monitor or projector"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+keywords = ["cli", "xrandr", "beamer", "mirror", "screen"]
+authors = [
+  {name = "Philipp Miller", email = "me@philer.org" }
+]
+maintainers = [
+  {name = "Philipp Miller", email = "me@philer.org" }
+]
+classifiers = [
+    'License :: OSI Approved :: MIT License',
+    'Programming Language :: Python :: 3 :: Only',
+    'Operating System :: POSIX :: Linux',
+    'Topic :: Desktop Environment',
+    'Topic :: Utilities',
+    'Natural Language :: English',
+]
+dependencies = [
+  "pydantic"
+]
+
+[project.urls]
+"Source" = "https://github.com/philer/beamer"
+
+[project.scripts]
+beamer = "beamer:main"
+
+[tool.setuptools]
+py-modules = ["beamer"]
