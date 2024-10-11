@@ -2,10 +2,20 @@
 # -*- coding: utf-8 -*-
 
 """
-Simple tool for toggling and positioning a secondary monitor or projector on Linux.
+Simple tool for toggling and positioning a second monitor (or projector) on Linux.
 
 Usage:
-    beamer [info|query|clone|left|right|above|below|off|only]
+    beamer [COMMAND]
+
+COMMANDs:
+    info   Print details and exit (default)
+    clone  Mirror the first monitor to the second
+    left | right | above | below
+           Display the second monitor beside the first
+    off    Only activate the first monitor
+    only   Only activate the second monitor
+    row [output...]
+           Specify a custom row (mostly for more than two monitors)
 """
 
 __title__ = "beamer"
@@ -181,7 +191,7 @@ def scan_xrandr_outputs(echo=True) -> Iterable[Output]:
     yield Output(**current_output, modes=tuple(modes))
 
 
-def connected_outputs(echo=True) -> Iterable[Output]:
+def connected_outputs(echo=False) -> Iterable[Output]:
     """Iterate outputs filtered by connection status."""
     for output in scan_xrandr_outputs(echo=echo):
         if output.connected:
@@ -189,7 +199,7 @@ def connected_outputs(echo=True) -> Iterable[Output]:
 
 
 def beamer_info():
-    for index, output in enumerate(connected_outputs(echo=False), start=1):
+    for index, output in enumerate(connected_outputs(), start=1):
         info(f"{index}: {output.name}")
         modes = [f"{'*' if m.active else ''}{m.width}x{m.height}" for m in output.modes]
         print(list_to_columns(modes, indent="  "))
@@ -240,11 +250,37 @@ def beamer_single_output_args(index=0) -> Optional[tuple[str, ...]]:
                                  for out in outputs)
             )
 
+
+def beamer_row_args(row: list[str]) -> Optional[tuple[str, ...]]:
+    """xrandr arguments for arranging multiple outputs."""
+    outputs = tuple(connected_outputs())
+    outputs_by_name = {output.name: output for output in outputs}
+    row_outputs = []
+    for entry in row:
+        try:
+            row_outputs.append(outputs[int(entry) - 1])
+        except IndexError:
+            error(f"Could not find output number {int(entry) - 1}")
+            return None
+        except ValueError:
+            try:
+                row_outputs.append(outputs_by_name[entry])
+            except KeyError:
+                error(f"Could not find output '{entry}'")
+                return None
+    return ("xrandr", "--output", row_outputs[0].name, "--auto",
+            *chain.from_iterable(
+                ("--output", out.name, "--auto", "--right-of", left.name)
+                for left, out in zip(row_outputs, row_outputs[1:])
+                )
+            )
+
+
 def main():
     """Run the CLI."""
     cmd: Optional[tuple[str, ...]] = None
     match sys.argv[1:]:
-        case ["info"]:
+        case ["info"] | []:
             return beamer_info()
         case ["off"]:
             cmd = beamer_single_output_args(index=0)
@@ -254,11 +290,15 @@ def main():
             cmd = beamer_clone_args()
         case ["left"| "right"| "above"| "below" as command]:
             cmd = beamer_side_args(command)
+        case ["row", *row]:
+            cmd = beamer_row_args(row)
         case _:
             error(cast(str, __doc__).strip())
-    if cmd:
-        return run_cmd(cmd)
-    return 1
+
+    if cmd is None:
+        return 1
+
+    print(run_cmd(cmd))
 
 
 if __name__ == "__main__":
