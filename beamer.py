@@ -253,27 +253,43 @@ def beamer_single_output_args(index=0) -> Optional[tuple[str, ...]]:
 
 def beamer_row_args(row: list[str]) -> Optional[tuple[str, ...]]:
     """xrandr arguments for arranging multiple outputs."""
+    if not row:
+        error(f"No outputs specified")
+        return None
+
     outputs = tuple(connected_outputs())
-    outputs_by_name = {output.name: output for output in outputs}
-    row_outputs = []
+    output_names = {output.name for output in outputs}
+
+    # Using list instead of set so xrandr can display an appropriate error
+    # in case of duplicate entries
+    row_output_names = list[str]()
     for entry in row:
         try:
-            row_outputs.append(outputs[int(entry) - 1])
+            row_output_names.append(outputs[int(entry) - 1].name)
         except IndexError:
             error(f"Could not find output number {int(entry) - 1}")
             return None
         except ValueError:
-            try:
-                row_outputs.append(outputs_by_name[entry])
-            except KeyError:
+            if entry in output_names:
+                row_output_names.append(entry)
+            else:
                 error(f"Could not find output '{entry}'")
                 return None
-    return ("xrandr", "--output", row_outputs[0].name, "--auto",
-            *chain.from_iterable(
-                ("--output", out.name, "--auto", "--right-of", left.name)
-                for left, out in zip(row_outputs, row_outputs[1:])
-                )
-            )
+
+    return (
+        # leftmost for reference - throws IndexError
+        "xrandr", "--output", row_output_names[0], "--auto",
+        # relative positions
+        *chain.from_iterable(
+            ("--output", out, "--auto", "--right-of", left)
+            for left, out in zip(row_output_names, row_output_names[1:])
+        ),
+        # turn off unused
+        *chain.from_iterable(
+            ("--output", out, "--off")
+            for out in output_names - set(row_output_names)
+        ),
+    )
 
 
 def main():
