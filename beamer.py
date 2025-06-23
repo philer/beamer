@@ -258,36 +258,41 @@ def beamer_row_args(row: list[str]) -> Optional[tuple[str, ...]]:
         return None
 
     outputs = tuple(connected_outputs())
-    output_names = {output.name for output in outputs}
+    outputs_by_name = {output.name: output for output in outputs}
 
     # Using list instead of set so xrandr can display an appropriate error
     # in case of duplicate entries
-    row_output_names = list[str]()
+    row_outputs = list[Output]()
     for entry in row:
+        if primary := entry.endswith("!"):
+            entry = entry[:-1]
         try:
-            row_output_names.append(outputs[int(entry) - 1].name)
+            output = outputs[int(entry) - 1]
         except IndexError:
             error(f"Could not find output number {int(entry) - 1}")
             return None
         except ValueError:
-            if entry in output_names:
-                row_output_names.append(entry)
-            else:
+            try:
+                output = outputs_by_name[entry]
+            except KeyError:
                 error(f"Could not find output '{entry}'")
                 return None
+        row_outputs.append(output.model_copy(update=dict(primary=primary)))
 
+    row_output_names = {out.name for out in row_outputs}
     return (
         # leftmost for reference - throws IndexError
-        "xrandr", "--output", row_output_names[0], "--auto",
+        "xrandr", "--output", row_outputs[0].name, "--auto",
         # relative positions
         *chain.from_iterable(
-            ("--output", out, "--auto", "--right-of", left)
-            for left, out in zip(row_output_names, row_output_names[1:])
+            ["--output", out.name, "--auto", "--right-of", left.name]
+            + (["--primary"] if out.primary else [])
+            for left, out in zip(row_outputs, row_outputs[1:])
         ),
         # turn off unused
         *chain.from_iterable(
-            ("--output", out, "--off")
-            for out in output_names - set(row_output_names)
+            ("--output", out.name, "--off")
+            for out in outputs if out.name not in row_output_names
         ),
     )
 
